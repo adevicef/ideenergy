@@ -16,13 +16,10 @@
 # USA.
 
 
-import logging
-import os
 import random
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -35,15 +32,6 @@ from .types import (
     HistoricalConsumption,
     Measure,
 )
-
-LOGGER = logging.getLogger(__name__)
-
-I_DE_ENERGY_DUMP_DIRECTORY = os.environ.get("I_DE_ENERGY_DUMP_DIRECTORY", "")
-I_DE_ENERGY_DUMP = bool(I_DE_ENERGY_DUMP_DIRECTORY)
-if I_DE_ENERGY_DUMP:
-    I_DE_ENERGY_DUMP_BASE_PATH = Path(I_DE_ENERGY_DUMP_DIRECTORY)
-else:
-    I_DE_ENERGY_DUMP_DIRECTORY = None
 
 
 class MockClient(Client):
@@ -184,8 +172,10 @@ class MockClient(Client):
 
     @auth_required
     async def get_historical_consumption(
-        self, start: datetime, end: datetime
+        self, start: datetime | None = None, end: datetime | None = None
     ) -> HistoricalConsumption:
+        start = start or datetime.now()
+        end = end or datetime.now()
         start = start.replace(minute=0, second=0)
         end = end.replace(minute=0, second=0)
 
@@ -215,5 +205,5 @@ def datetime_range(
 
 
 @contextmanager
-def preseed_random(seed) -> Iterator[random.Random]:
+def preseed_random(seed) -> Generator[random.Random]:
     yield random.Random(repr(seed))

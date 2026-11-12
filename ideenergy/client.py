@@ -68,15 +68,16 @@ SESSION_TIMEOUT = 900
 SESSION_AUTO_REFRESH = True
 
 # Define TypeVars to preserve the signature and return type
+C = TypeVar("C", bound="Client")
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
 def auth_required(
-    fn: Callable[Concatenate[Client, P], Awaitable[R]],
-) -> Callable[Concatenate[Client, P], Awaitable[R]]:
+    fn: Callable[Concatenate[C, P], Awaitable[R]],
+) -> Callable[Concatenate[C, P], Awaitable[R]]:
     @functools.wraps(fn)
-    async def _wrap(client: Client, *args, **kwargs):
+    async def _wrap(client: C, *args: P.args, **kwargs: P.kwargs) -> R:
         if client._session_auto_refresh is True and client.is_logged is False:
             await client.login()
 
@@ -143,7 +144,7 @@ class Client:
         self._username = username
         self._password = password
         self._contract = contract
-        self._session_timeout = timedelta(session_timeout.total_seconds() * 0.9)
+        self._session_timeout = timedelta(seconds=session_timeout.total_seconds() * 0.9)
         self._session_auto_refresh = session_auto_refresh
 
         self._login_ts: datetime | None = None
@@ -265,13 +266,13 @@ class Client:
             LOGGER.error(f"{self}: auth failed, invalid data")
             raise InvalidData(data)
 
-        if data.get("success", "false") != "true":
-            LOGGER.error(f"{self}: auth failed, no success")
-            raise CommandError(data)
-
         if data.get("success", "") == "userExpired":
             LOGGER.error(f"{self}: auth failed, user session expired")
             raise UserExpiredError(data)
+
+        if data.get("success", "false") != "true":
+            LOGGER.error(f"{self}: auth failed, no success")
+            raise CommandError(data)
 
         self._login_ts = datetime.now()
         LOGGER.debug(f"{self}: succesfully authenticaded")
@@ -356,8 +357,7 @@ class Client:
         end = end or datetime.now()
         start = start or end - timedelta(days=7)
 
-        start = min([start, end])
-        end = max([start, end])
+        start, end = sorted((start, end))
         url = _CONSUMPTION_PERIOD_ENDPOINT.format(start=start, end=end)
 
         data = await self.request_json("GET", url, encoding="iso-8859-1")
@@ -376,14 +376,14 @@ class Client:
         ret = parsers.parse_in_progress_consumption(data)
         return ret
 
+    @auth_required
     async def get_historical_generation(
         self, start: datetime | None = None, end: datetime | None = None
     ) -> HistoricalGeneration:
         end = end or datetime.now()
         start = start or end - timedelta(days=7)
 
-        start = min([start, end])
-        end = max([start, end])
+        start, end = sorted((start, end))
         url = _GENERATION_PERIOD_ENDPOINT.format(start=start, end=end)
 
         data = await self.request_json("GET", url, encoding="iso-8859-1")

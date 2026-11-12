@@ -1,4 +1,4 @@
-# Copyright (C) 2021-2022 Luis López <luis@cuarentaydos.com>
+# Copyright (C) 2021-2026 Luis López <luis@cuarentaydos.com>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,13 +24,14 @@ from typing import Any
 from . import client
 from .types import (
     ConsumptionForPeriod,
-    InProgressConsumption,
     DemandAtInstant,
     HistoricalConsumption,
     HistoricalGeneration,
     HistoricalPowerDemand,
+    InProgressConsumption,
     PeriodValue,
 )
+
 
 def parser_generic_historical_data(data, base_dt: datetime) -> dict[str, Any]:
     def _normalize(idx: int, item: dict | None) -> PeriodValue | None:
@@ -92,12 +93,13 @@ def parse_historical_consumption(data) -> HistoricalConsumption:
 
     return ret
 
+
 def parse_in_progress_consumption(data) -> InProgressConsumption:
     ret = InProgressConsumption()
     periods = ret.periods
     onehour = timedelta(hours=1)
-    fechas = data.get('fechas')
-    consumos = data.get('consumos')
+    fechas = data.get("fechas")
+    consumos = data.get("consumos")
     if not (fechas and consumos):
         if fechas or consumos:
             raise client.InvalidData(data)
@@ -112,6 +114,7 @@ def parse_in_progress_consumption(data) -> InProgressConsumption:
             PeriodValue(start=end-onehour, end=end, value=value)
         )
     return ret
+
 
 def parse_historical_generation(data) -> HistoricalGeneration:
     start = datetime.strptime(data["fechaPeriodo"], "%d-%m-%Y%H:%M:%S").replace(
@@ -135,7 +138,7 @@ def parse_historical_power_demand_data(data) -> HistoricalPowerDemand:
         )
 
     potMaxMens = data["potMaxMens"]
-    potMaxMens = list(itertools.chain.from_iterable([x for x in potMaxMens]))
+    potMaxMens = list(itertools.chain.from_iterable(potMaxMens))
 
     demands = [_normalize_item(x) for x in potMaxMens]
     demands = list(sorted(demands, key=lambda x: x.dt))
