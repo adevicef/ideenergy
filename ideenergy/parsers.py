@@ -18,6 +18,7 @@
 
 import itertools
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from . import client
@@ -45,6 +46,11 @@ def parser_generic_historical_data(data, base_dt: datetime) -> dict[str, Any]:
         except (KeyError, ValueError, TypeError):
             return None
 
+    base_dt = (
+        base_dt.replace(tzinfo=ZoneInfo("Europe/Madrid")).astimezone(ZoneInfo("UTC"))
+        if not base_dt.tzinfo else base_dt.astimezone(ZoneInfo("UTC"))
+    )
+
     g = (_normalize(idx, item) for (idx, item) in enumerate(data["y"]["data"][0]))
     historical_values = [x for x in g if x is not None]
     historical_values = list(sorted(historical_values, key=lambda x: x.start))
@@ -62,7 +68,7 @@ def parse_historical_consumption(data) -> HistoricalConsumption:
 
     start = datetime.strptime(data[0]["fechaDesde"], "%d-%m-%Y").replace(
         hour=0, minute=0, second=0
-    )
+    ).replace(tzinfo=ZoneInfo("Europe/Madrid")).astimezone(tz=ZoneInfo("UTC"))
 
     period_names = data[0]["periodos"]
 
@@ -101,15 +107,19 @@ def parse_in_progress_consumption(data) -> InProgressConsumption:
             # between 00:00 and 01:00: {'mensaje': 'No existen datos disponibles'}
             return ret
     for endstr, value in zip(data["fechas"], data["consumos"]):
-        end = datetime.strptime(endstr, "%Y-%m-%d %H")
-        periods.append(PeriodValue(start=end - onehour, end=end, value=value))
+        end = datetime.strptime(
+            endstr, '%Y-%m-%d %H'
+        ).replace(tzinfo=ZoneInfo("Europe/Madrid")).astimezone(ZoneInfo("UTC"))
+        periods.append(
+            PeriodValue(start=end-onehour, end=end, value=value)
+        )
     return ret
 
 
 def parse_historical_generation(data) -> HistoricalGeneration:
     start = datetime.strptime(data["fechaPeriodo"], "%d-%m-%Y%H:%M:%S").replace(
         hour=0, minute=0, second=0
-    )
+    ).replace(tzinfo=ZoneInfo("Europe/Madrid")).astimezone(tz=ZoneInfo("UTC"))
 
     parsed = parser_generic_historical_data(data, start)
 
@@ -119,7 +129,11 @@ def parse_historical_generation(data) -> HistoricalGeneration:
 def parse_historical_power_demand_data(data) -> HistoricalPowerDemand:
     def _normalize_item(item: dict) -> DemandAtInstant:
         return DemandAtInstant(
-            dt=datetime.strptime(item["name"], "%d/%m/%Y %H:%M"),
+            dt=(
+                datetime.strptime(
+                    item["name"], "%d/%m/%Y %H:%M"
+                ).replace(tzinfo=ZoneInfo("Europe/Madrid")).astimezone(ZoneInfo("UTC"))
+            ),
             value=item["y"],
         )
 
